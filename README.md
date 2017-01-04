@@ -95,9 +95,9 @@ object HttpConfig {
 
 ### Create other components and use shapeless
 
-If a component depends on other components. Its `Reader` instance
-  depends on its dependencies `Reader` instances. Since this is all recursive
-  and automatable thanks to Shapeless we can write this
+If a component depends on other components, its `Reader` instance
+  depends on its dependencies `Reader` instances. Thanks to Shapeless we can derive `Reader` instances of a component
+  given that the `Reader` for its sub-components are available as `implicit`.
 
 ```scala
 
@@ -121,14 +121,23 @@ object Database {
     PostgresDatabase.reader
 }
 
-case class PostgresDatabase(dbConfig: DbConfig) extends Start {
+case class PostgresDatabase(dbConfig: DbConfig) extends Database with Start {
   def start: Eval[StartResult] =
-    Start.eval("postgres")(PostgresDriver.start(dbConfig.url))
+    StartResult.eval("postgres")(PostgresDriver(dbConfig.url).start)
 }
 
 object PostgresDatabase {
   implicit def reader: Reader[ApplicationConfig, PostgresDatabase] =
     genericReader
+}
+
+case class PostgresDriver(url: String) extends Start {
+  def start: Eval[StartResult] =
+    StartResult.eval("driver")(url)
+}
+
+object PostgresDriver {
+  implicit def reader: Reader[ApplicationConfig, PostgresDriver] = Reader(appConfig => PostgresDriver(appConfig.db.url))
 }
 
 object DbConfig {
